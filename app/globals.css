@@ -1,0 +1,79 @@
+@import "tailwindcss";
+
+/* Class-based dark mode (toggle adds/removes `.dark` on <html>) */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  /* AWS-flavored brand palette */
+  --color-brand: #ff9900;
+  --color-brand-600: #ec7211;
+  --color-brand-700: #d35400;
+
+  --color-navy-950: #0a1322;
+  --color-navy-900: #0f1b2d;
+  --color-navy-850: #122036;
+  --color-navy-800: #16263d;
+  --color-navy-700: #1e3350;
+  --color-navy-600: #2a4b6e;
+
+  /* Domain accent colors (match the guide's bars) */
+  --color-dom-security: #e0533d;
+  --color-dom-resilient: #2f6fd0;
+  --color-dom-performance: #e08a1e;
+  --color-dom-cost: #2e9e5b;
+  --color-dom-patterns: #8b5cf6;
+
+  --font-sans: var(--font-inter), system-ui, sans-serif;
+  --font-arabic: var(--font-cairo), system-ui, sans-serif;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: #f4f6fb;
+  color: #0f1b2d;
+}
+
+.dark body {
+  background-color: var(--color-navy-950);
+  color: #e6edf6;
+}
+
+/* Arabic text: switch font + direction */
+.ar,
+[dir="rtl"] {
+  font-family: var(--font-arabic);
+  direction: rtl;
+  text-align: right;
+}
+
+/* Flashcard 3D flip */
+.card-flip {
+  perspective: 1200px;
+}
+.card-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transition: transform 0.5s;
+  transform-style: preserve-3d;
+}
+.card-inner.flipped {
+  transform: rotateY(180deg);
+}
+.card-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.card-back {
+  transform: rotateY(180deg);
+}
+
+/* Thin scrollbars */
+* {
+  scrollbar-width: thin;
+}
