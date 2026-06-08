@@ -19,6 +19,9 @@ export interface MCQ {
   correct: number[];
   explanationEn: string;
   explanationAr: string;
+  /** Why the main distractors are wrong (optional). */
+  whyWrongEn?: string;
+  whyWrongAr?: string;
   /** Service/keyword tags for search + display. */
   services: string[];
   difficulty?: Difficulty;

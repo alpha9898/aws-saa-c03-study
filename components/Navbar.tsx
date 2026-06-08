@@ -8,8 +8,10 @@ import { useLanguage } from "@/lib/language";
 const links = [
   { href: "/", label: "Home" },
   { href: "/quiz", label: "Quiz" },
-  { href: "/flashcards", label: "Flashcards" },
+  { href: "/exam", label: "Exam" },
+  { href: "/flashcards", label: "Cards" },
   { href: "/qa", label: "Q&A" },
+  { href: "/cheatsheet", label: "Cheat" },
 ];
 
 export function Navbar() {
@@ -25,7 +27,7 @@ export function Navbar() {
           <span className="hidden text-sm sm:inline">SAA-C03 Study</span>
         </Link>
 
-        <div className="flex items-center gap-0.5">
+        <div className="flex min-w-0 items-center gap-0.5 overflow-x-auto">
           {links.map((l) => {
             const active =
               l.href === "/" ? pathname === "/" : pathname.startsWith(l.href);

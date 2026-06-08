@@ -8,6 +8,7 @@ import { DOMAINS } from "@/data/domains";
 import { useProgress } from "@/lib/progress";
 import { useLanguage } from "@/lib/language";
 import { ProgressBar } from "@/components/ProgressBar";
+import { StatsPanel } from "@/components/StatsPanel";
 
 const modes = [
   {
@@ -15,8 +16,17 @@ const modes = [
     icon: "📝",
     title: "Practice Quiz",
     titleAr: "أسئلة اختيار من متعدد",
-    desc: "Scenario-based MCQs with instant answers + explanations.",
+    desc: "Scenario MCQs with instant answers, explanations & bookmarks.",
     count: `${MCQS.length} questions`,
+  },
+  {
+    href: "/exam",
+    icon: "⏱️",
+    title: "Timed Mock Exam",
+    titleAr: "امتحان تجريبي بوقت",
+    desc: "65 questions · 130 min · scored with a per-domain breakdown.",
+    count: "Full simulation",
+    featured: true,
   },
   {
     href: "/flashcards",
@@ -34,15 +44,19 @@ const modes = [
     desc: "Searchable 'when do you use…?' concept explanations.",
     count: `${QAS.length} Q&A`,
   },
+  {
+    href: "/cheatsheet",
+    icon: "📋",
+    title: "Cheat Sheet",
+    titleAr: "ورقة المراجعة",
+    desc: "Golden keywords + every X-vs-Y comparison on one page.",
+    count: "Quick reference",
+  },
 ];
 
 export default function Home() {
-  const { state, reset } = useProgress();
+  const { reset } = useProgress();
   const { showAr } = useLanguage();
-
-  const answered = Object.keys(state.mcq).length;
-  const correct = Object.values(state.mcq).filter(Boolean).length;
-  const known = Object.values(state.flash).filter((s) => s === "known").length;
 
   return (
     <div className="space-y-10">
@@ -56,12 +70,13 @@ export default function Home() {
         </h1>
         {showAr && (
           <p className="ar mt-2 text-lg text-slate-500 dark:text-slate-300">
-            مذاكرة شهادة AWS Solutions Architect — أسئلة سيناريو، بطاقات، وشرح بالعربي
+            مذاكرة شهادة AWS Solutions Architect — أسئلة سيناريو، امتحان بوقت، بطاقات، وشرح بالعربي
           </p>
         )}
         <p className="mt-3 max-w-2xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">
-          Real-exam-style scenario questions, flashcards, and concept Q&A across
-          all four domains — English questions with optional Arabic explanations.
+          Real-exam-style scenario questions, a timed mock exam, flashcards, and
+          concept Q&A across all four domains — English questions with optional
+          Arabic explanations.
         </p>
 
         <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -87,26 +102,26 @@ export default function Home() {
       {/* Study modes */}
       <section>
         <h2 className="mb-4 text-lg font-bold">Study modes</h2>
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {modes.map((m) => (
             <Link
               key={m.href}
               href={m.href}
-              className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-brand hover:shadow-md dark:border-navy-800 dark:bg-navy-900"
+              className={`group rounded-2xl border bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:bg-navy-900 ${
+                m.featured
+                  ? "border-brand/60 ring-1 ring-brand/30"
+                  : "border-slate-200 hover:border-brand dark:border-navy-800"
+              }`}
             >
               <div className="text-3xl">{m.icon}</div>
               <div className="mt-3 flex items-center gap-2">
                 <h3 className="font-bold">{m.title}</h3>
               </div>
-              {showAr && (
-                <p className="ar text-sm text-slate-400">{m.titleAr}</p>
-              )}
+              {showAr && <p className="ar text-sm text-slate-400">{m.titleAr}</p>}
               <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
                 {m.desc}
               </p>
-              <p className="mt-3 text-xs font-semibold text-brand">
-                {m.count} →
-              </p>
+              <p className="mt-3 text-xs font-semibold text-brand">{m.count} →</p>
             </Link>
           ))}
         </div>
@@ -133,57 +148,10 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Progress */}
+      {/* Progress / stats */}
       <section>
         <h2 className="mb-4 text-lg font-bold">Your progress</h2>
-        <div className="grid gap-4 sm:grid-cols-3">
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-navy-800 dark:bg-navy-900">
-            <div className="text-sm text-slate-500 dark:text-slate-400">
-              MCQs answered
-            </div>
-            <div className="text-3xl font-extrabold">
-              {answered}
-              <span className="text-base font-medium text-slate-400">
-                {" "}
-                / {MCQS.length}
-              </span>
-            </div>
-            <div className="mt-2">
-              <ProgressBar value={answered} max={MCQS.length} />
-            </div>
-          </div>
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-navy-800 dark:bg-navy-900">
-            <div className="text-sm text-slate-500 dark:text-slate-400">
-              Correct answers
-            </div>
-            <div className="text-3xl font-extrabold text-green-600">
-              {correct}
-              <span className="text-base font-medium text-slate-400">
-                {answered > 0
-                  ? ` (${Math.round((correct / answered) * 100)}%)`
-                  : ""}
-              </span>
-            </div>
-            <div className="mt-2">
-              <ProgressBar value={correct} max={Math.max(answered, 1)} color="#16a34a" />
-            </div>
-          </div>
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-navy-800 dark:bg-navy-900">
-            <div className="text-sm text-slate-500 dark:text-slate-400">
-              Flashcards known
-            </div>
-            <div className="text-3xl font-extrabold">
-              {known}
-              <span className="text-base font-medium text-slate-400">
-                {" "}
-                / {FLASHCARDS.length}
-              </span>
-            </div>
-            <div className="mt-2">
-              <ProgressBar value={known} max={FLASHCARDS.length} color="#16a34a" />
-            </div>
-          </div>
-        </div>
+        <StatsPanel />
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <button
             onClick={() => {
@@ -205,8 +173,8 @@ export default function Home() {
       </section>
 
       <footer className="border-t border-slate-200 pt-6 text-center text-xs text-slate-400 dark:border-navy-800">
-        Built from the AWS SAA-C03 study guide · Questions in real-exam scenario
-        style · Bilingual EN / AR
+        Built from the AWS SAA-C03 study guide · Real-exam scenario style ·
+        Bilingual EN / AR · Installable (PWA)
       </footer>
     </div>
   );

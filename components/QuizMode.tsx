@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { MCQS } from "@/data/mcqs";
 import type { MCQ } from "@/data/types";
 import { DOMAINS } from "@/data/domains";
@@ -12,6 +12,7 @@ import { SearchBar } from "./SearchBar";
 import { DomainBadge, ServiceTags } from "./DomainBadge";
 
 const LETTERS = ["A", "B", "C", "D", "E", "F"];
+type Source = "all" | "bookmarked" | "incorrect";
 
 function matchSearch(m: MCQ, q: string) {
   if (!q) return true;
@@ -31,8 +32,9 @@ function isCorrectSelection(sel: number[], correct: number[]) {
 
 export function QuizMode() {
   const { showAr } = useLanguage();
-  const { recordMcq } = useProgress();
+  const { state, recordMcq, toggleBookmark } = useProgress();
 
+  const [source, setSource] = useState<Source>("all");
   const [domain, setDomain] = useState<DomainValue>("all");
   const [search, setSearch] = useState("");
   const [items, setItems] = useState<MCQ[]>(() => MCQS);
@@ -41,31 +43,39 @@ export function QuizMode() {
   const [submitted, setSubmitted] = useState(false);
   const [stats, setStats] = useState({ answered: 0, correct: 0 });
 
-  // Recompute the working set when filters change (deterministic — no SSR mismatch).
+  const bookmarkCount = Object.keys(state.bookmarks).length;
+  const incorrectCount = Object.values(state.mcq).filter((v) => v === false).length;
+
+  // Rebuild working set when filters/source change (deterministic — no SSR mismatch).
   useEffect(() => {
-    const next = MCQS.filter(
-      (m) => (domain === "all" || m.domain === domain) && matchSearch(m, search)
-    );
+    const next = MCQS.filter((m) => {
+      if (source === "bookmarked" && !state.bookmarks[m.id]) return false;
+      if (source === "incorrect" && state.mcq[m.id] !== false) return false;
+      if (domain !== "all" && m.domain !== domain) return false;
+      return matchSearch(m, search);
+    });
     setItems(next);
     setIndex(0);
     setSelected([]);
     setSubmitted(false);
     setStats({ answered: 0, correct: 0 });
-  }, [domain, search]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [domain, search, source]);
 
   const counts = useMemo(() => {
-    const c: Record<string, number> = {
-      all: MCQS.filter((m) => matchSearch(m, search)).length,
-    };
-    for (const d of DOMAINS) {
-      c[d.id] = MCQS.filter(
-        (m) => m.domain === d.id && matchSearch(m, search)
-      ).length;
-    }
+    const base = MCQS.filter((m) => {
+      if (source === "bookmarked" && !state.bookmarks[m.id]) return false;
+      if (source === "incorrect" && state.mcq[m.id] !== false) return false;
+      return matchSearch(m, search);
+    });
+    const c: Record<string, number> = { all: base.length };
+    for (const d of DOMAINS) c[d.id] = base.filter((m) => m.domain === d.id).length;
     return c;
-  }, [search]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, source]);
 
   const current = items[index];
+  const bookmarked = current ? !!state.bookmarks[current.id] : false;
 
   const reshuffle = () => {
     setItems((prev) => shuffle(prev));
@@ -75,19 +85,21 @@ export function QuizMode() {
     setStats({ answered: 0, correct: 0 });
   };
 
-  const pick = (i: number) => {
-    if (submitted || !current) return;
-    if (current.type === "single") {
-      setSelected([i]);
-    } else {
-      setSelected((prev) =>
-        prev.includes(i) ? prev.filter((x) => x !== i) : [...prev, i]
-      );
-    }
-  };
+  const pick = useCallback(
+    (i: number) => {
+      if (submitted || !current) return;
+      if (i >= current.options.length) return;
+      if (current.type === "single") setSelected([i]);
+      else
+        setSelected((prev) =>
+          prev.includes(i) ? prev.filter((x) => x !== i) : [...prev, i]
+        );
+    },
+    [submitted, current]
+  );
 
-  const submit = () => {
-    if (!current || selected.length === 0) return;
+  const submit = useCallback(() => {
+    if (!current || selected.length === 0 || submitted) return;
     const correct = isCorrectSelection(selected, current.correct);
     setSubmitted(true);
     setStats((s) => ({
@@ -95,23 +107,77 @@ export function QuizMode() {
       correct: s.correct + (correct ? 1 : 0),
     }));
     recordMcq(current.id, correct);
-  };
+  }, [current, selected, submitted, recordMcq]);
 
-  const next = () => {
+  const next = useCallback(() => {
     setSelected([]);
     setSubmitted(false);
     setIndex((i) => Math.min(i + 1, items.length - 1));
-  };
-  const prev = () => {
+  }, [items.length]);
+
+  const prev = useCallback(() => {
     setSelected([]);
     setSubmitted(false);
     setIndex((i) => Math.max(i - 1, 0));
-  };
+  }, []);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const tag = (document.activeElement?.tagName || "").toLowerCase();
+      if (tag === "input" || tag === "textarea") return;
+      const k = e.key.toLowerCase();
+      const letterIdx = LETTERS.findIndex((l) => l.toLowerCase() === k);
+      const numIdx = /^[1-6]$/.test(k) ? parseInt(k, 10) - 1 : -1;
+      const idx = letterIdx >= 0 ? letterIdx : numIdx;
+      if (idx >= 0) {
+        pick(idx);
+        e.preventDefault();
+      } else if (k === "enter") {
+        if (!submitted) submit();
+        else next();
+        e.preventDefault();
+      } else if (k === "arrowright") {
+        next();
+        e.preventDefault();
+      } else if (k === "arrowleft") {
+        prev();
+        e.preventDefault();
+      } else if (k === "b" && current) {
+        toggleBookmark(current.id);
+        e.preventDefault();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [pick, submit, next, prev, submitted, current, toggleBookmark]);
 
   const correct = current ? isCorrectSelection(selected, current.correct) : false;
 
+  const sources: { id: Source; label: string; n: number }[] = [
+    { id: "all", label: "All", n: MCQS.length },
+    { id: "bookmarked", label: "★ Bookmarked", n: bookmarkCount },
+    { id: "incorrect", label: "↻ Incorrect", n: incorrectCount },
+  ];
+
   return (
     <div className="space-y-5">
+      <div className="flex flex-wrap gap-2">
+        {sources.map((s) => (
+          <button
+            key={s.id}
+            onClick={() => setSource(s.id)}
+            className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition sm:text-sm ${
+              source === s.id
+                ? "border-brand bg-brand/15 text-brand"
+                : "border-slate-200 text-slate-500 hover:border-brand dark:border-navy-700 dark:text-slate-400"
+            }`}
+          >
+            {s.label} ({s.n})
+          </button>
+        ))}
+      </div>
+
       <div className="space-y-3">
         <SearchBar value={search} onChange={setSearch} />
         <DomainFilter value={domain} onChange={setDomain} counts={counts} />
@@ -121,7 +187,11 @@ export function QuizMode() {
         <div className="text-slate-500 dark:text-slate-400">
           {items.length > 0 ? (
             <>
-              Question <span className="font-semibold text-slate-800 dark:text-slate-100">{index + 1}</span> of {items.length}
+              Question{" "}
+              <span className="font-semibold text-slate-800 dark:text-slate-100">
+                {index + 1}
+              </span>{" "}
+              of {items.length}
             </>
           ) : (
             "No questions match your filters."
@@ -154,6 +224,17 @@ export function QuizMode() {
                 {current.difficulty}
               </span>
             )}
+            <button
+              onClick={() => toggleBookmark(current.id)}
+              title="Bookmark (B)"
+              className={`ml-auto rounded-md px-2 py-0.5 text-sm transition ${
+                bookmarked
+                  ? "text-brand"
+                  : "text-slate-300 hover:text-brand dark:text-slate-600"
+              }`}
+            >
+              {bookmarked ? "★" : "☆"}
+            </button>
           </div>
 
           <p className="mb-4 text-[15px] font-medium leading-relaxed">
@@ -167,11 +248,8 @@ export function QuizMode() {
               let cls =
                 "border-slate-200 bg-white hover:border-brand dark:border-navy-700 dark:bg-navy-950";
               if (submitted) {
-                if (isAns)
-                  cls =
-                    "border-green-500 bg-green-50 dark:bg-green-500/10";
-                else if (isSel)
-                  cls = "border-red-500 bg-red-50 dark:bg-red-500/10";
+                if (isAns) cls = "border-green-500 bg-green-50 dark:bg-green-500/10";
+                else if (isSel) cls = "border-red-500 bg-red-50 dark:bg-red-500/10";
                 else cls = "border-slate-200 opacity-70 dark:border-navy-700";
               } else if (isSel) {
                 cls = "border-brand bg-brand/10";
@@ -226,6 +304,22 @@ export function QuizMode() {
                   </p>
                 )}
               </div>
+
+              {current.whyWrongEn && (
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-navy-700 dark:bg-navy-950">
+                  <p className="mb-1 text-xs font-bold uppercase tracking-wide text-slate-500">
+                    Why the other options are wrong
+                  </p>
+                  <p className="text-sm leading-relaxed text-slate-700 dark:text-slate-200">
+                    {current.whyWrongEn}
+                  </p>
+                  {showAr && current.whyWrongAr && (
+                    <p className="ar mt-2 border-t border-black/5 pt-2 text-sm leading-loose text-slate-700 dark:border-white/10 dark:text-slate-200">
+                      {current.whyWrongAr}
+                    </p>
+                  )}
+                </div>
+              )}
               <ServiceTags services={current.services} />
             </div>
           )}
@@ -241,6 +335,9 @@ export function QuizMode() {
           >
             ← Previous
           </button>
+          <span className="hidden text-xs text-slate-400 sm:block">
+            Keys: A–E select · Enter submit/next · ←/→ navigate · B bookmark
+          </span>
           <button
             onClick={next}
             disabled={index >= items.length - 1}

@@ -1,0 +1,18 @@
+{
+  "name": "AWS SAA-C03 Study Hub",
+  "short_name": "SAA-C03",
+  "description": "Bilingual AWS SAA-C03 study app: scenario MCQs, a timed mock exam, flashcards, and Q&A.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0a1322",
+  "theme_color": "#0a1322",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
